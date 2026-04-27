@@ -1,1 +1,1 @@
-{}
+{"name": "hermes-math-arena","version": "1.0.0","description": "A math arena project.","main": "main.js","scripts": {"test": "echo \"Error: no test specified\" && exit 1"},"author": "thethclup","license": "ISC"}
