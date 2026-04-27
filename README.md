@@ -2,21 +2,12 @@
 
 This project is a math arena game designed to engage users in mathematical challenges and competitions. It includes various features like scenes, animations, and particle simulation.
 
-## Installation
+# Hermes Math Arena
 
-To install the project, clone the repository and run:
-
+Local geliştirme:
 ```bash
 npm install
-```
-
-## Usage
-
-To start the project, run:
-
-```bash
-node main.js
-```
+npm run dev
 
 ## Contribution
 
