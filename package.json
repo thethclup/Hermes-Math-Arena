@@ -1,1 +1,20 @@
-{"name": "hermes-math-arena","version": "1.0.0","description": "A math arena project.","main": "main.js","scripts": {"test": "echo \"Error: no test specified\" && exit 1"},"author": "thethclup","license": "ISC"}
+{
+  "name": "hermes-math-arena",
+  "version": "1.0.0",
+  "description": "A math arena project.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node main.js"
+  },
+  "author": "thethclup",
+  "license": "ISC",
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "three": "^0.158.0"
+  }
+}
