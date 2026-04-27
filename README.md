@@ -8,5 +8,3 @@ Local geliştirme:
 ```bash
 npm install
 npm run dev
-
-
