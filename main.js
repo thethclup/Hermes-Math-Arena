@@ -5,11 +5,11 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
-// Eğer proje içinde kendi modülleriniz varsa .js uzantısı ile içe aktarın:
+// If you have local modules, import them with explicit .js extensions:
 // import { initScene } from './core/SceneManager.js';
 
 let renderer, scene, camera, composer;
-let activeObjects = []; // sahnede eklenen nesneleri takip et
+let activeObjects = []; // track objects added to the scene
 
 function init() {
   // Renderer
@@ -28,7 +28,7 @@ function init() {
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
 
-  // Particles (örnek)
+  // Particles (example)
   initParticles();
 
   // Lights
@@ -86,26 +86,22 @@ function disposeMaterial(material) {
 }
 
 function clearScene() {
-  // activeObjects listesindeki tüm nesneleri sahneden kaldır ve dispose et
+  // Remove and dispose objects tracked in activeObjects
   activeObjects.forEach(obj => {
     if (!obj) return;
     scene.remove(obj);
-    if (obj.geometry) {
-      // buffer geometries
-      obj.geometry.dispose && obj.geometry.dispose();
-    }
+    if (obj.geometry) obj.geometry.dispose && obj.geometry.dispose();
     if (obj.material) disposeMaterial(obj.material);
-    // texture cleanup
     if (obj.material && obj.material.map) obj.material.map.dispose && obj.material.map.dispose();
   });
   activeObjects = [];
 }
 
 function playDemo() {
-  // Her demo başlamadan önce sahneyi temizle
+  // Clear previous demo objects to avoid accumulation
   clearScene();
 
-  // Triangle: ExtrudeGeometry ile 3D hissi
+  // Triangle: ExtrudeGeometry for a volumetric feel
   const shape = new THREE.Shape();
   shape.moveTo(0, 1);
   shape.lineTo(-0.866, -0.5);
@@ -122,7 +118,7 @@ function playDemo() {
   tri.position.set(0, 0.5, 0);
   tri.rotation.x = -0.2;
 
-  // Label örneği (basit sprite)
+  // Label (simple sprite)
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 128;
@@ -141,23 +137,21 @@ function playDemo() {
 
   scene.add(tri, label);
   activeObjects.push(tri, label);
-
-  // Basit rotation başlangıcı (animate loop içinde döndürülecek)
 }
 
 function animate() {
   requestAnimationFrame(animate);
 
-  // particle rotasyonu
+  // Rotate particle field slowly
   const particleField = scene.getObjectByName('particleField');
   if (particleField) particleField.rotation.y += 0.0008;
 
-  // active object'leri döndür
+  // Rotate active demo objects
   activeObjects.forEach(o => {
     if (o && o.rotation) o.rotation.y += 0.009;
   });
 
-  // render via composer so bloom is applied
+  // Render via composer so bloom is applied
   if (composer) composer.render();
   else renderer.render(scene, camera);
 }
