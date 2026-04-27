@@ -9,6 +9,4 @@ Local geliştirme:
 npm install
 npm run dev
 
-## Contribution
 
-Feel free to submit pull requests for new features or improvements!
