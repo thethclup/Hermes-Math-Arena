@@ -1,0 +1,244 @@
+*** Begin Patch
+*** Add File: vite.config.js
++import { defineConfig } from 'vite';
++
++export default defineConfig({
++  base: '/Hermes-Math-Arena/',
++  server: {
++    port: 5173
++  }
++});
++
+*** End Patch
+*** Begin Patch
+*** Delete File: backend/server.py
+*** End Patch
+*** Begin Patch
+*** Add File: backend/server.py
++import asyncio
++import json
++from fastapi import FastAPI, WebSocket, WebSocketDisconnect
++import websockets
++
++app = FastAPI()
++
++HERMES_WS = "ws://localhost:5000/ws"  # user agent endpoint
++
++async def try_connect_hermes():
++    try:
++        ws = await websockets.connect(HERMES_WS)
++        return ws
++    except:
++        return None
++
++def parse_step(text: str):
++    t = (text or "").lower()
++
++    if "triangle" in t:
++        return {"visualType": "triangle_build"}
++
++    if "angle" in t:
++        return {
++            "visualType": "highlight_angles",
++            "data": {"angles": [60, 60, 60]}
++        }
++
++    if "180" in t or "180°" in t:
++        return {
++            "visualType": "show_result",
++            "data": {"text": "180°"}
++        }
++
++    return {
++        "visualType": "generic_text",
++        "data": {"text": text[:100]}
++    }
++
++@app.websocket("/ws")
++async def websocket_endpoint(client: WebSocket):
++    await client.accept()
++
++    try:
++        while True:
++            question = await client.receive_text()
++
++            hermes = await try_connect_hermes()
++
++            # CASE 1: REAL AGENT (streaming WS)
++            if hermes:
++                try:
++                    await hermes.send(question)
++                    async for msg in hermes:
++                        step = parse_step(msg)
++                        await client.send_text(json.dumps(step))
++                except Exception:
++                    # if streaming fails, fallback to mock below
++                    pass
++
++            # CASE 2: FALLBACK MOCK (or if agent not available)
++            mock_steps = [
++                {"visualType": "triangle_build"},
++                {"visualType": "highlight_angles"},
++                {"visualType": "show_result", "data": {"text": "180°"}}
++            ]
++
++            for step in mock_steps:
++                await client.send_text(json.dumps(step))
++                await asyncio.sleep(1.2)
++
++    except WebSocketDisconnect:
++        print("Client disconnected")
++
+*** End Patch
+*** Begin Patch
+*** Delete File: src/agent/HermesSocketClient.js
+*** End Patch
+*** Begin Patch
+*** Add File: src/agent/HermesSocketClient.js
++// src/agent/HermesSocketClient.js
++export function connectHermes(animationDirector){
++  const socket = new WebSocket("ws://localhost:8000/ws");
++
++  socket.addEventListener('open', () => {
++    console.log("[HermesSocket] connected to backend ws://localhost:8000/ws");
++  });
++
++  socket.addEventListener('message', (event) => {
++    try {
++      const step = JSON.parse(event.data);
++      if (animationDirector && typeof animationDirector.playStep === 'function') {
++        animationDirector.playStep(step);
++      } else {
++        // emit event for legacy handlers
++        window.dispatchEvent(new CustomEvent('hermes:step', { detail: step }));
++      }
++    } catch (e) {
++      console.warn('[HermesSocket] invalid message', e);
++    }
++  });
++
++  socket.addEventListener('close', () => {
++    console.log('[HermesSocket] closed');
++  });
++
++  socket.addEventListener('error', (err) => {
++    console.error('[HermesSocket] error', err);
++  });
++
++  return socket;
++}
++
+*** End Patch
+*** Begin Patch
+*** Delete File: src/main.js
+*** End Patch
+*** Begin Patch
+*** Add File: src/main.js
++// src/main.js (updated to use Hermes bridge)
++import { connectHermes } from './agent/HermesSocketClient.js';
++
++document.addEventListener('DOMContentLoaded', () => {
++  // expect global animationDirector (existing code)
++  const animationDirector = window.animationDirector || null;
++  const socket = connectHermes(animationDirector);
++
++  const solveBtn = document.getElementById('solveBtn');
++  const problemInput = document.getElementById('problemInput');
++  if (solveBtn && problemInput) {
++    solveBtn.addEventListener('click', () => {
++      const q = problemInput.value || 'triangle angles';
++      if (socket && socket.readyState === WebSocket.OPEN) {
++        socket.send(q);
++      } else {
++        console.warn('Socket not open. Start backend first (uvicorn backend.server:app --reload)');
++      }
++    });
++  }
++});
++
+*** End Patch
+*** Begin Patch
+*** Delete File: AnimationDirector.js
+*** End Patch
+*** Begin Patch
+*** Add File: AnimationDirector.js
++class AnimationDirector {
++  constructor(sceneManager) {
++    // optional: accept a SceneManager instance (if present)
++    this.sceneManager = sceneManager || window.SceneManager || null;
++    this.activeObjects = [];
++  }
++
++  clearScene(){
++    if (this.sceneManager && typeof this.sceneManager.clearScene === 'function') {
++      this.sceneManager.clearScene();
++    } else {
++      // fallback: remove tracked activeObjects
++      this.activeObjects.forEach(o => {
++        try { if (o.parent) o.parent.remove(o); } catch(e) {}
++      });
++      this.activeObjects = [];
++    }
++  }
++
++  spawnTriangle(payload = {}) {
++    // delegate to SceneManager if available to keep rendering code in one place
++    if (this.sceneManager && typeof this.sceneManager.spawnTriangle === 'function') {
++      const tri = this.sceneManager.spawnTriangle(payload);
++      if (tri) this.activeObjects.push(tri);
++      return tri;
++    }
++    // fallback: emit event so SceneManager or main can listen
++    const ev = new CustomEvent('hermes:spawnTriangle', { detail: payload });
++    window.dispatchEvent(ev);
++  }
++
++  highlightAngles(data = {}) {
++    if (this.sceneManager && typeof this.sceneManager.highlightAngles === 'function') {
++      return this.sceneManager.highlightAngles(data);
++    }
++    const ev = new CustomEvent('hermes:highlightAngles', { detail: data });
++    window.dispatchEvent(ev);
++  }
++
++  showResult(text = '') {
++    if (this.sceneManager && typeof this.sceneManager.showResult === 'function') {
++      return this.sceneManager.showResult(text);
++    }
++    console.log('[AnimationDirector] showResult:', text);
++    const ev = new CustomEvent('hermes:showResult', { detail: { text }});
++    window.dispatchEvent(ev);
++  }
++
++  playStep(step) {
++    if (!step || !step.visualType) return;
++    // clear previous demo objects for idempotency
++    this.clearScene();
++
++    switch(step.visualType) {
++      case 'triangle_build':
++        this.spawnTriangle(step.data);
++        break;
++      case 'highlight_angles':
++        this.highlightAngles(step.data);
++        break;
++      case 'show_result':
++        this.showResult(step.data && step.data.text);
++        break;
++      case 'generic_text':
++        console.log('[AnimationDirector] generic_text:', step.data && step.data.text);
++        break;
++      default:
++        console.log('[AnimationDirector] unknown step:', step);
++    }
++  }
++}
++
++// expose globally (existing code expects window.animationDirector)
++if (!window.animationDirector) {
++  window.animationDirector = new AnimationDirector(window.sceneManager || null);
++}
++
++export default AnimationDirector;
++
+*** End Patch
